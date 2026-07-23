@@ -1,5 +1,17 @@
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+// ====================JWT GENERATION ===================(line 110)
+const generateToken = (userId) => {
+    return jwt.sign(
+        { id: userId },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: process.env.JWT_EXPIRES_IN,
+        }
+    );
+};
 
 // ==================== REGISTER USER ====================
 
@@ -95,16 +107,20 @@ const loginUser = async (req, res) => {
             });
         }
 
-        // Login successful
-        res.status(200).json({
-            success: true,
-            message: "Login successful",
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-            },
-        });
+        // Login successful - replaced by jwt
+        const token = generateToken(user._id);
+
+    res.status(200).json({
+        success: true,
+        message: "Login successful",
+        token,
+        user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+        },
+});
+         
 
     } catch (error) {
         console.error(error);
@@ -116,7 +132,56 @@ const loginUser = async (req, res) => {
     }
 };
 
+
+
+// =====================NEW=============
+const getCurrentUser = async (req, res) => {
+    res.status(200).json({
+        success: true,
+        user: req.user,
+    });
+};
+
+
+
+//======================== update prfile =================
+const updateCurrentUser = async (req, res) => {
+    try {
+        const { username } = req.body;
+
+        if (!username) {
+            return res.status(400).json({
+                success: false,
+                message: "Username is required",
+            });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            { username },
+            {
+                new: true,
+                runValidators: true,
+            }
+        ).select("-password -__v");
+
+        res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            user,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+
 module.exports = {
     registerUser,
     loginUser,
+    getCurrentUser,
+    updateCurrentUser
 };
